@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dialogflow-style Chatbot</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.1/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md mx-auto bg-white/90 rounded-2xl shadow-2xl flex flex-col h-[600px]">
+        <div class="bg-gradient-to-r from-blue-500 to-purple-500 text-white text-lg font-semibold py-4 px-6 rounded-t-2xl flex items-center gap-2">
+            <span class="text-2xl">🤖</span>
+            <span>Dialogflow Chatbot</span>
+        </div>
+        <div id="chatBox" class="flex-1 overflow-y-auto px-4 py-6 space-y-4 bg-white">
+            <!-- Messages will appear here -->
+        </div>
+        <form id="chatForm" class="flex items-center gap-2 p-4 border-t bg-white" autocomplete="off">
+            <input id="userInput" type="text" placeholder="Type your message..." required class="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50" />
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-5 py-2 rounded-lg transition">Send</button>
+        </form>
+    </div>
+    <script>
+        const chatBox = document.getElementById('chatBox');
+        const chatForm = document.getElementById('chatForm');
+        const userInput = document.getElementById('userInput');
+
+        function appendMessage(text, sender) {
+            const row = document.createElement('div');
+            row.className = `flex items-end ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            // Avatar
+            const avatar = document.createElement('div');
+            avatar.className = `w-9 h-9 rounded-full flex items-center justify-center text-xl font-bold shadow ${sender === 'user' ? 'bg-gradient-to-br from-yellow-400 to-yellow-200 text-gray-800 ml-2' : 'bg-gradient-to-br from-blue-500 to-purple-400 text-white mr-2'}`;
+            avatar.textContent = sender === 'user' ? '🧑' : '🤖';
+
+            // Message bubble
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `max-w-[70%] px-4 py-2 rounded-2xl shadow text-base break-words ${
+                sender === 'user'
+                    ? 'bg-gradient-to-br from-yellow-100 to-yellow-50 text-gray-800 rounded-br-md'
+                    : 'bg-gradient-to-br from-blue-100 to-purple-100 text-gray-700 rounded-bl-md'
+            }`;
+            msgDiv.textContent = text;
+
+            if (sender === 'user') {
+                row.appendChild(msgDiv);
+                row.appendChild(avatar);
+            } else {
+                row.appendChild(avatar);
+                row.appendChild(msgDiv);
+            }
+            chatBox.appendChild(row);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        chatForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const userMsg = userInput.value.trim();
+            if (!userMsg) return;
+            appendMessage(userMsg, 'user');
+            userInput.value = '';
+            setTimeout(() => {
+                appendMessage('Hello! I am a simple chatbot. How can I help you?', 'bot');
+            }, 500);
+        });
+    </script>
+</body>
+</html> 
