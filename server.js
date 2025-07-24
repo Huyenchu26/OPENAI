@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const OpenAI = require('openai');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
@@ -13,6 +14,8 @@ app.use(bodyParser.json());
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // In-memory conversation store: { conversationId: [ {role, content}, ... ] }
 const conversations = {};
@@ -42,6 +45,20 @@ app.post('/chat', async (req, res) => {
     const botReply = completion.choices[0].message.content;
     // Add assistant reply to conversation
     conversations[conversationId].push({ role: 'assistant', content: botReply });
+
+    // Upsert conversation to Supabase
+    const { error: supabaseError } = await supabase
+      .from('conversations')
+      .upsert([
+        {
+          conversation_id: conversationId,
+          messages: conversations[conversationId],
+        }
+      ], { onConflict: ['conversation_id'] });
+    if (supabaseError) {
+      console.error('Supabase upsert error:', supabaseError);
+    }
+
     res.json({ reply: botReply });
   } catch (err) {
     console.error(err);
