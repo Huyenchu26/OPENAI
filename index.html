@@ -95,7 +95,7 @@
 </head>
 <body>
     <div class="chat-container">
-        <div class="chat-header">Chatbot</div>
+        <div class="chat-header">Assistant</div>
         <div class="chat-box" id="chatBox"></div>
         <form class="chat-input-row" id="chatForm" autocomplete="off">
             <input type="text" id="userInput" placeholder="Type your message..." required />
@@ -124,7 +124,7 @@
             appendMessage(userMsg, 'user');
             userInput.value = '';
             try {
-                const res = await fetch('http://localhost:3001/chat', {
+                const res = await fetch('https://openai-three-inky.vercel.app/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: userMsg, conversationId })
