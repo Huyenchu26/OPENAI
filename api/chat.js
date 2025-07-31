@@ -11,51 +11,70 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 const conversations = {};
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method === 'GET') {
+    // Fetch all conversations
+    try {
+      const { data, error } = await supabase
+        .from('conversations')
+        .select('conversation_id, created_at, messages')
+        .order('created_at', { ascending: false });
 
-  const { message, conversationId } = req.body;
-  if (!message || !conversationId) {
-    return res.status(400).json({ error: 'Missing message or conversationId' });
-  }
+      if (error) {
+        console.error('Supabase fetch error:', error);
+        return res.status(500).json({ error: 'Failed to fetch conversations' });
+      }
 
-  // Initialize conversation if new
-  if (!conversations[conversationId]) {
-    conversations[conversationId] = [
-      { role: 'system', content: 'You are a helpful assistant.' }
-    ];
-  }
-  // Add user message
-  conversations[conversationId].push({ role: 'user', content: message });
-
-  try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // or 'gpt-3.5-turbo'
-      messages: conversations[conversationId],
-      temperature: 0.7,
-      max_tokens: 256,
-    });
-    const botReply = completion.choices[0].message.content;
-    // Add assistant reply to conversation
-    conversations[conversationId].push({ role: 'assistant', content: botReply });
-
-    // Upsert conversation to Supabase
-    const { error: supabaseError } = await supabase
-      .from('conversations')
-      .upsert([
-        {
-          conversation_id: conversationId,
-          messages: conversations[conversationId],
-        }
-      ], { onConflict: ['conversation_id'] });
-    if (supabaseError) {
-      console.error('Supabase upsert error:', supabaseError);
+      res.status(200).json(data);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  } else if (req.method === 'POST') {
+    // Handle chat messages
+    const { message, conversationId } = req.body;
+    if (!message || !conversationId) {
+      return res.status(400).json({ error: 'Missing message or conversationId' });
     }
 
-    res.status(200).json({ reply: botReply });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to get response from OpenAI' });
+    // Initialize conversation if new
+    if (!conversations[conversationId]) {
+      conversations[conversationId] = [
+        { role: 'system', content: 'You are a helpful assistant.' }
+      ];
+    }
+    // Add user message
+    conversations[conversationId].push({ role: 'user', content: message });
+
+    try {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini', // or 'gpt-3.5-turbo'
+        messages: conversations[conversationId],
+        temperature: 0.7,
+        max_tokens: 256,
+      });
+      const botReply = completion.choices[0].message.content;
+      // Add assistant reply to conversation
+      conversations[conversationId].push({ role: 'assistant', content: botReply });
+
+      // Upsert conversation to Supabase
+      const { error: supabaseError } = await supabase
+        .from('conversations')
+        .upsert([
+          {
+            conversation_id: conversationId,
+            messages: conversations[conversationId],
+          }
+        ], { onConflict: ['conversation_id'] });
+      if (supabaseError) {
+        console.error('Supabase upsert error:', supabaseError);
+      }
+
+      res.status(200).json({ reply: botReply });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to get response from OpenAI' });
+    }
+  } else {
+    res.status(405).json({ error: 'Method not allowed' });
   }
 } 
