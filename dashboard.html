@@ -54,6 +54,31 @@
     .conversation-list li:hover {
       background: #dbeafe;
     }
+    .conversation-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+    .conversation-info {
+      flex: 1;
+      cursor: pointer;
+    }
+    .delete-btn {
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.8em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 10px;
+      transition: background 0.2s;
+    }
+    .delete-btn:hover {
+      background: #b91c1c;
+    }
     .timestamp {
       font-size: 0.95em;
       color: #64748b;
@@ -141,6 +166,31 @@
       }
     }
 
+    async function deleteConversation(conversationId, event) {
+      event.stopPropagation(); // Prevent triggering the conversation click
+      if (!confirm('Are you sure you want to delete this conversation?')) {
+        return;
+      }
+      
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId })
+        });
+        
+        if (res.ok) {
+          // Remove from local array and refresh display
+          conversations = conversations.filter(conv => conv.conversation_id !== conversationId);
+          renderConversationList();
+        } else {
+          alert('Failed to delete conversation');
+        }
+      } catch (err) {
+        alert('Error deleting conversation');
+      }
+    }
+
     function renderConversationList() {
       conversationList.innerHTML = '';
       if (conversations.length === 0) {
@@ -149,8 +199,15 @@
       }
       conversations.forEach(conv => {
         const li = document.createElement('li');
-        li.innerHTML = `<span><b>${conv.conversation_id}</b></span> <span class="timestamp">${new Date(conv.create_at).toLocaleString()}</span>`;
-        li.onclick = () => showMessages(conv);
+        li.innerHTML = `
+          <div class="conversation-item">
+            <div class="conversation-info">
+              <span><b>${conv.conversation_id}</b></span> <span class="timestamp">${new Date(conv.create_at).toLocaleString()}</span>
+            </div>
+            <button class="delete-btn" onclick="deleteConversation('${conv.conversation_id}', event)">×</button>
+          </div>
+        `;
+        li.querySelector('.conversation-info').onclick = () => showMessages(conv);
         conversationList.appendChild(li);
       });
     }

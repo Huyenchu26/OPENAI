@@ -74,6 +74,32 @@ export default async function handler(req, res) {
       console.error(err);
       res.status(500).json({ error: 'Failed to get response from OpenAI' });
     }
+  } else if (req.method === 'DELETE') {
+    // Delete conversation
+    const { conversationId } = req.body;
+    if (!conversationId) {
+      return res.status(400).json({ error: 'Missing conversationId' });
+    }
+
+    try {
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('conversation_id', conversationId);
+
+      if (error) {
+        console.error('Supabase delete error:', error);
+        return res.status(500).json({ error: 'Failed to delete conversation' });
+      }
+
+      // Remove from in-memory store
+      delete conversations[conversationId];
+
+      res.status(200).json({ message: 'Conversation deleted successfully' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Server error' });
+    }
   } else {
     res.status(405).json({ error: 'Method not allowed' });
   }
