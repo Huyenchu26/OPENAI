@@ -10,13 +10,41 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY
 // In-memory conversation store: { conversationId: [ {role, content}, ... ] }
 const conversations = {};
 
+const system_prompt = `Extract the following customer details from the transcript:
+- Name
+- Email address
+- Phone number
+- Industry
+- Problems, needs, and goals summary
+- Availability
+- Whether they have booked a consultation (true/false)
+- Any special notes
+- Lead quality (categorize as 'good', 'ok', or 'spam')
+Format the response using this JSON schema:
+{
+  "type": "object",
+  "properties": {
+    "customerName": { "type": "string" },
+    "customerEmail": { "type": "string" },
+    "customerPhone": { "type": "string" },
+    "customerIndustry": { "type": "string" },
+    "customerProblem": { "type": "string" },
+    "customerAvailability": { "type": "string" },
+    "customerConsultation": { "type": "boolean" },
+    "specialNotes": { "type": "string" },
+    "leadQuality": { "type": "string", "enum": ["good", "ok", "spam"] }
+  },
+  "required": ["customerName", "customerEmail", "customerProblem", "leadQuality"]
+}
+If the user provided contact details, set lead quality to "good"; otherwise, "spam".`;
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     // Fetch all conversations
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('conversation_id, create_at, messages')
+        .select('conversation_id, create_at, messages, customer_analysis')
         .order('create_at', { ascending: false });
 
       if (error) {
@@ -73,6 +101,75 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'Failed to get response from OpenAI' });
+    }
+  } else if (req.method === 'PUT') {
+    // Analyze conversation for customer information
+    const { conversationId } = req.body;
+    if (!conversationId) {
+      return res.status(400).json({ error: 'Missing conversationId' });
+    }
+
+    try {
+      // Get conversation from database
+      const { data: convData, error: fetchError } = await supabase
+        .from('conversations')
+        .select('messages')
+        .eq('conversation_id', conversationId)
+        .single();
+
+      if (fetchError || !convData) {
+        return res.status(404).json({ error: 'Conversation not found' });
+      }
+
+      // Create transcript from messages
+      const transcript = convData.messages
+        .filter(msg => msg.role !== 'system')
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+
+      // Analyze with OpenAI
+      const analysisCompletion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: system_prompt },
+          { role: 'user', content: `Analyze this conversation transcript:\n\n${transcript}` }
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      });
+
+      const analysisText = analysisCompletion.choices[0].message.content;
+      
+      // Try to parse JSON from response
+      let analysis;
+      try {
+        // Extract JSON from the response (it might be wrapped in markdown)
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
+        } else {
+          analysis = JSON.parse(analysisText);
+        }
+      } catch (parseError) {
+        console.error('Failed to parse analysis JSON:', parseError);
+        return res.status(500).json({ error: 'Failed to parse analysis response' });
+      }
+
+      // Update conversation with analysis
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update({ customer_analysis: analysis })
+        .eq('conversation_id', conversationId);
+
+      if (updateError) {
+        console.error('Supabase update error:', updateError);
+        return res.status(500).json({ error: 'Failed to save analysis' });
+      }
+
+      res.status(200).json(analysis);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Failed to analyze conversation' });
     }
   } else if (req.method === 'DELETE') {
     // Delete conversation

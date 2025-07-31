@@ -79,6 +79,67 @@
     .delete-btn:hover {
       background: #b91c1c;
     }
+    .analyze-btn {
+      background: #059669;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 0.8em;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 5px;
+      transition: background 0.2s;
+    }
+    .analyze-btn:hover {
+      background: #047857;
+    }
+    .analysis-view {
+      background: #f0f9ff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 18px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .analysis-view.active {
+      display: flex;
+    }
+    .analysis-field {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      border-bottom: 1px solid #e0e7ff;
+    }
+    .analysis-label {
+      font-weight: bold;
+      color: #1e40af;
+      min-width: 120px;
+    }
+    .analysis-value {
+      color: #1f2937;
+      flex: 1;
+      text-align: right;
+    }
+    .lead-quality {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      text-align: center;
+    }
+    .lead-quality.good {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .lead-quality.ok {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    .lead-quality.spam {
+      background: #fee2e2;
+      color: #991b1b;
+    }
     .timestamp {
       font-size: 0.95em;
       color: #64748b;
@@ -141,6 +202,10 @@
       <button class="back-btn" id="backBtn">Back to Conversations</button>
       <div id="messagesContainer"></div>
     </div>
+    <div class="analysis-view" id="analysisView">
+      <h3>Customer Analysis</h3>
+      <div id="analysisContainer"></div>
+    </div>
     <button class="main-chat-btn" onclick="window.location.href='index.html'">Return to Main Chat</button>
   </div>
   <script>
@@ -191,6 +256,75 @@
       }
     }
 
+    async function analyzeConversation(conversationId, event) {
+      event.stopPropagation();
+      
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId })
+        });
+        
+        if (res.ok) {
+          const analysis = await res.json();
+          displayAnalysis(analysis);
+        } else {
+          alert('Failed to analyze conversation');
+        }
+      } catch (err) {
+        alert('Error analyzing conversation');
+      }
+    }
+
+    function displayAnalysis(analysis) {
+      const analysisContainer = document.getElementById('analysisContainer');
+      const analysisView = document.getElementById('analysisView');
+      
+      analysisContainer.innerHTML = `
+        <div class="analysis-field">
+          <span class="analysis-label">Name:</span>
+          <span class="analysis-value">${analysis.customerName || 'Not provided'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Email:</span>
+          <span class="analysis-value">${analysis.customerEmail || 'Not provided'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Phone:</span>
+          <span class="analysis-value">${analysis.customerPhone || 'Not provided'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Industry:</span>
+          <span class="analysis-value">${analysis.customerIndustry || 'Not specified'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Problem/Needs:</span>
+          <span class="analysis-value">${analysis.customerProblem || 'Not specified'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Availability:</span>
+          <span class="analysis-value">${analysis.customerAvailability || 'Not specified'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Consultation Booked:</span>
+          <span class="analysis-value">${analysis.customerConsultation ? 'Yes' : 'No'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Special Notes:</span>
+          <span class="analysis-value">${analysis.specialNotes || 'None'}</span>
+        </div>
+        <div class="analysis-field">
+          <span class="analysis-label">Lead Quality:</span>
+          <span class="analysis-value">
+            <span class="lead-quality ${analysis.leadQuality}">${analysis.leadQuality.toUpperCase()}</span>
+          </span>
+        </div>
+      `;
+      
+      analysisView.classList.add('active');
+    }
+
     function renderConversationList() {
       conversationList.innerHTML = '';
       if (conversations.length === 0) {
@@ -204,6 +338,7 @@
             <div class="conversation-info">
               <span><b>${conv.conversation_id}</b></span> <span class="timestamp">${new Date(conv.create_at).toLocaleString()}</span>
             </div>
+            <button class="analyze-btn" onclick="analyzeConversation('${conv.conversation_id}', event)">Analyze</button>
             <button class="delete-btn" onclick="deleteConversation('${conv.conversation_id}', event)">×</button>
           </div>
         `;
