@@ -16,8 +16,8 @@ export default async function handler(req, res) {
     try {
       const { data, error } = await supabase
         .from('conversations')
-        .select('conversation_id, created_at, messages')
-        .order('created_at', { ascending: false });
+        .select('conversation_id, create_at, messages')
+        .order('create_at', { ascending: false });
 
       if (error) {
         console.error('Supabase fetch error:', error);

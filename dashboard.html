@@ -149,7 +149,7 @@
       }
       conversations.forEach(conv => {
         const li = document.createElement('li');
-        li.innerHTML = `<span><b>${conv.conversation_id}</b></span> <span class="timestamp">${new Date(conv.created_at).toLocaleString()}</span>`;
+        li.innerHTML = `<span><b>${conv.conversation_id}</b></span> <span class="timestamp">${new Date(conv.create_at).toLocaleString()}</span>`;
         li.onclick = () => showMessages(conv);
         conversationList.appendChild(li);
       });
